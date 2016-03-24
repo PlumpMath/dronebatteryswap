@@ -46,24 +46,11 @@ def rountineB(*args,**kwargs):
         pass #run something
         #lock the Signal
         GIL.lock()
-        #if told to go to B
-        if Signal == 'B':
-            # if not done yet
-            if not Done:
-                GIL.release()
-                #just continue going
-                continue
-            #else finished with no signal
-            else:
-                Signal = None
-                GIL.release()
-                #return to main, to await next signal
-                return
-        #else if told to go to A
-        elif Signal == 'A':
-            GIL.release()
-            #go to A
-            yield 'A'
+
+	if Signal == 'A' or Done:
+		Signal = None if Done else 'A'
+		GIL.release()
+		yield
 
 #same code as routine B
 def routineA(*args,**kwargs):
@@ -73,17 +60,10 @@ def routineA(*args,**kwargs):
         pass #run something
         #Done might become True
         GIL.lock()
-        if Signal =='B':
-            GIL.release()
-            yield 'B'
-        elif Signal == 'A':
-            if not Done:
-                GIL.release()
-                continue
-            else:
-                Signal = None
-                GIL.release()
-                return
+       	if Signal == 'A' or Done:
+		Signal = None if Done else 'A'
+		GIL.release()
+		yield
 
 if __name__ == "__main__":
     #get server (ip,port), else default to (127.0.0.1,9000)
