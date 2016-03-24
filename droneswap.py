@@ -5,6 +5,14 @@ import os
 
 '''
 This won't run it is just a template
+
+
+
+client does:
+
+import xmlrpclib
+server = xmlrplib.ServerProx('http://IP:port')
+server.yourfct
 '''
 
 
