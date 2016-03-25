@@ -2,6 +2,8 @@
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 from threading import Thread,Lock
 import os
+from time import sleep
+import pdb
 
 '''
 This won't run it is just a template
@@ -25,51 +27,67 @@ Signal = None
 #called by remote raspberry pi over TCP?
 class SignalHanler(object):
     global GIL
+
     #signal to go to A
     def swapToA(self,*args,**kwargs):
+        global Signal
         GIL.acquire()
         Signal = 'A'
         GIL.release()
     #signal to go to B
     def swapToB(self, *args,**kwargs):
+        global Signal
         GIL.acquire()
         Signal = 'B'
         GIL.release()
 
 
 
-def rountineB(*args,**kwargs):
+def routineB(*args,**kwargs):
     global GIL
+    global Signal
     #signals if finished with no signal
     Done = False
     while True:
-        pass #run something
+        print 'B'
+        #run something
         #lock the Signal
-        GIL.lock()
+        GIL.acquire()
 
-	if Signal == 'A' or Done:
-		Signal = None if Done else 'A'
-		GIL.release()
-		yield
+    	if Signal == 'A' or Done:
+    		Signal = None if Done else 'A'
+    		GIL.release()
+    		yield
+        else:
+            GIL.release()
+        #you don't need this
+        sleep(1)
 
 #same code as routine B
 def routineA(*args,**kwargs):
     global GIL
+    global Signal
     Done = False
     while True:
-        pass #run something
+        print 'A'
+        #run something
         #Done might become True
-        GIL.lock()
-       	if Signal == 'A' or Done:
-		Signal = None if Done else 'A'
-		GIL.release()
-		yield
+        GIL.acquire()
+        print Signal
+        if Signal == 'B' or Done:
+            Signal = None if Done else 'B'
+            GIL.release()
+            yield
+        else:
+            GIL.release()
+        #you don't need this
+        sleep(1)
 
 if __name__ == "__main__":
     #get server (ip,port), else default to (127.0.0.1,9000)
     #from env vars
     serveraddress = os.getenv('SERVER_IP','127.0.0.1')
-    serverport = os.getenv('SERVER_PORT','9000')
+    serverport = os.getenv('SERVER_PORT',9000)
     #instance for handler
     handler = SignalHanler()
     #set up RPC
@@ -79,9 +97,9 @@ if __name__ == "__main__":
             allow_none = True
     )
     #register handler
-    server.register.instance(handler)
+    server.register_instance(handler)
     #start server async thread
-    serverThread = Thread(target=server.server_forever,args=())
+    serverThread = Thread(target=server.serve_forever,args=())
     serverThread.start()
 
     #start with routine A
@@ -90,19 +108,23 @@ if __name__ == "__main__":
     B = None
     while True:
         #lock the signal
-        GIL.lock()
+        GIL.acquire()
         # if told to go to A
         if Signal == 'A':
             #go to A
+            GIL.release()
             A.next()
         elif Signal == 'B':
             #if B has never gone before
             if not B:
+                GIL.release()
                 #intialize and start it
-                B = rountineB()
+                B = routineB()
             else:
+                GIL.release()
                 #go to B
                 B.next()
         else:
+            GIL.release()
             #else if told to do nothing, just sleep and await next signal
             sleep(2)
